@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CECI — Classement central</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="config.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#17212b;font:14px Segoe UI,Arial,sans-serif}
+header{background:#163a63;color:#fff;padding:18px 22px}h1{margin:0 0 10px;font-size:22px}
+.stats{display:flex;gap:8px;flex-wrap:wrap}.pill{padding:7px 10px;border:1px solid #fff3;border-radius:18px;background:#ffffff18}
+.toolbar{background:#fff;border-bottom:1px solid #d9dee6;padding:11px 15px;display:flex;gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+input,select,button{font:inherit;padding:9px 11px;border:1px solid #d0d5dd;border-radius:7px;background:#fff}input{min-width:260px;flex:1}button{cursor:pointer}.primary{background:#175cd3;color:#fff;border-color:#175cd3}
+.notice{margin:12px 15px;padding:11px 13px;border:1px solid #d9dee6;border-radius:9px;background:#fff}.live{color:#067647;font-weight:700}
+.board{display:flex;gap:12px;overflow:auto;padding:0 15px 20px}.col{width:285px;min-width:285px;background:#e9eef3;border:1px solid #d9dee6;border-radius:10px;max-height:calc(100vh - 210px);display:flex;flex-direction:column}.head{padding:10px;font-weight:700;border-bottom:1px solid #d9dee6;display:flex;justify-content:space-between}.badge{background:#fff;border-radius:18px;padding:2px 8px}.cards{padding:8px;overflow:auto;min-height:80px}.card{background:#fff;border:1px solid #d9dee6;border-radius:8px;padding:9px;margin-bottom:7px;cursor:grab}.card b{overflow-wrap:anywhere}.meta{font-size:11px;color:#667085;margin-top:5px}.col.over{outline:2px dashed #175cd3;outline-offset:-3px}.empty{padding:18px;text-align:center;color:#667085}
+.overlay{position:fixed;inset:0;background:#0008;display:flex;align-items:center;justify-content:center;z-index:20}.box{background:#fff;padding:24px;border-radius:12px;width:min(500px,92vw)}.box input{width:100%;margin:10px 0}.hidden{display:none!important}
+.toast{position:fixed;right:15px;bottom:15px;background:#101828;color:#fff;padding:10px 13px;border-radius:8px;display:none;z-index:30}
+</style>
+</head>
+<body>
+<div id="login" class="overlay"><div class="box">
+<h2>Classement CECI</h2><p>Connexion sécurisée à la base centrale.</p>
+<p style="font-size:12px;color:#667085">Pour ce MVP, l'accès utilise l'authentification anonyme Supabase. La protection par code partagé pourra être ajoutée ensuite via une Edge Function.</p>
+<button id="connect" class="primary">Entrer dans l'application</button><p id="err" style="color:#b42318"></p>
+</div></div>
+
+<header><h1>Classement central des grandes localités</h1>
+<div class="stats"><span class="pill">🟢 <span id="connection">Connexion…</span></span><span class="pill">Demandes : <b id="n">0</b></span><span class="pill">À classer : <b id="u">0</b></span><span class="pill">Groupes : <b id="g">0</b></span></div></header>
+<div class="toolbar">
+<input id="search" placeholder="🔎 Rechercher une dénomination…">
+<select id="filter"><option value="all">Tous</option><option value="À classer">À classer</option><option value="À vérifier">À vérifier</option><option value="OK">OK</option></select>
+<button id="import">📥 Importer Excel</button><input id="file" type="file" accept=".xlsx,.xls,.csv" class="hidden">
+<button id="add">＋ Localité</button><button id="export" class="primary">💾 Exporter Excel</button><button id="journal">🕘 Journal</button>
+</div>
+<div class="notice"><span class="live">● Temps réel</span> — les changements enregistrés dans la base centrale sont reçus automatiquement par les autres utilisateurs.</div>
+<div id="board" class="board"></div><div id="toast" class="toast"></div>
+
+<script>
+const cfg=window.APP_CONFIG||{};
+let client=null, me=null, rows=[], groups=[];
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const clean=s=>String(s??"").trim().replaceAll("Ã©","é").replaceAll("Ã ","à").replaceAll("Ã¨","è").replaceAll("Ã§","ç").replaceAll("â€”","—").replaceAll("â€™","’").replaceAll("Â","");
+function toast(t){let x=document.getElementById("toast");x.textContent=t;x.style.display="block";setTimeout(()=>x.style.display="none",1800)}
+function rebuild(){groups=[...new Set(rows.map(r=>r.grande_localite).filter(x=>x&&x!=="À classer"))].sort((a,b)=>a.localeCompare(b,"fr"))}
+function status(r){return r.statut||((r.grande_localite==="À classer")?"À classer":"OK")}
+function render(){
+ rebuild();const q=clean(document.getElementById("search").value).toLowerCase(),f=document.getElementById("filter").value;
+ const vis=rows.filter(r=>(!q||r.parcelledenomination.toLowerCase().includes(q))&&(f==="all"||status(r)===f));
+ document.getElementById("n").textContent=rows.length;document.getElementById("u").textContent=rows.filter(r=>r.grande_localite==="À classer").length;document.getElementById("g").textContent=groups.length;
+ const b=document.getElementById("board");b.innerHTML="";
+ [ "À classer",...groups].forEach(g=>{
+  const c=document.createElement("section");c.className="col";const a=vis.filter(r=>r.grande_localite===g);
+  c.innerHTML=`<div class="head"><span>${esc(g)}</span><span class="badge">${a.length}</span></div><div class="cards"></div>`;
+  const cs=c.querySelector(".cards");a.forEach(r=>{let d=document.createElement("div");d.className="card";d.draggable=true;d.innerHTML=`<b>${esc(r.parcelledenomination)}</b><div class="meta">ID ${esc(r.id)} · ${esc(status(r))}</div>`;d.ondragstart=e=>e.dataTransfer.setData("text/plain",r.id);cs.appendChild(d)});
+  if(!a.length)cs.innerHTML='<div class="empty">Déposer ici</div>';
+  c.ondragover=e=>{e.preventDefault();c.classList.add("over")};c.ondragleave=()=>c.classList.remove("over");
+  c.ondrop=async e=>{e.preventDefault();c.classList.remove("over");const id=e.dataTransfer.getData("text/plain"),r=rows.find(x=>String(x.id)===String(id));if(r&&r.grande_localite!==g)await move(r,g)};b.appendChild(c)
+ })
+}
+async function move(r,g){
+ const old=r.grande_localite;
+ const {error}=await client.from("localites").update({grande_localite:g,statut:g==="À classer"?"À classer":"OK",updated_at:new Date().toISOString(),updated_by:me.id}).eq("id",r.id);
+ if(error){toast("Erreur : "+error.message);return}
+ await client.from("journal_classement").insert({localite_id:r.id,parcelledenomination:r.parcelledenomination,ancienne_localite:old,nouvelle_localite:g,utilisateur:me.id});
+ toast("Classement enregistré");
+}
+async function load(){const {data,error}=await client.from("localites").select("*").order("parcelledenomination");if(error){toast(error.message);return}rows=data||[];render()}
+async function init(){
+ if(!cfg.SUPABASE_URL||cfg.SUPABASE_URL.includes("TON-PROJET"))return;
+ client=supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY);
+ const {data}=await client.auth.getSession();if(data.session)me=data.session.user;
+ document.getElementById("connect").onclick=async()=>{const x=await client.auth.signInAnonymously();if(x.error){document.getElementById("err").textContent=x.error.message;return}me=x.data.user;document.getElementById("login").classList.add("hidden");document.getElementById("connection").textContent="Base centrale connectée";await load();subscribe()};
+ if(me){document.getElementById("login").classList.add("hidden");document.getElementById("connection").textContent="Base centrale connectée";await load();subscribe()}
+}
+function subscribe(){client.channel("localites-realtime").on("postgres_changes",{event:"*",schema:"public",table:"localites"},p=>{const r=p.new||p.old;if(p.eventType==="UPDATE"){let i=rows.findIndex(x=>x.id===r.id);if(i>=0)rows[i]=r;else rows.push(r)}else if(p.eventType==="INSERT")rows.push(r);else if(p.eventType==="DELETE")rows=rows.filter(x=>x.id!==r.id);render();toast("Mise à jour reçue")}).subscribe()}
+document.getElementById("search").oninput=render;document.getElementById("filter").onchange=render;
+document.getElementById("add").onclick=async()=>{let g=prompt("Nom de la grande localité");if(g?.trim()){g=clean(g);let {error}=await client.from("groupes").upsert({nom:g});if(error)toast(error.message);else toast("Groupe ajouté")}};
+document.getElementById("import").onclick=()=>document.getElementById("file").click();
+document.getElementById("file").onchange=async e=>{let f=e.target.files[0];if(!f)return;let reader=new FileReader();reader.onload=async ev=>{let wb=f.name.toLowerCase().endsWith(".csv")?XLSX.read(ev.target.result,{type:"string"}):XLSX.read(ev.target.result,{type:"array"});let a=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});let keys=Object.keys(a[0]||{}),find=n=>keys.find(k=>n.includes(clean(k).toLowerCase())),idk=find(["id"]),pk=find(["parcelledenomination"]),gk=find(["grande localité","grande localite"]),sk=find(["statut"]);if(!pk){toast("ParcelleDenomination introuvable");return}let payload=a.map((x,i)=>({id:clean(idk?x[idk]:i+1),parcelledenomination:clean(x[pk]),grande_localite:clean(gk?x[gk]:"À classer")||"À classer",statut:clean(sk?x[sk]:"")||"À classer",updated_by:me.id}));for(let i=0;i<payload.length;i+=200){let {error}=await client.from("localites").upsert(payload.slice(i,i+200),{onConflict:"id"});if(error){toast(error.message);return}}toast(payload.length+" lignes importées");await load()};if(f.name.toLowerCase().endsWith(".csv"))reader.readAsText(f,"utf-8");else reader.readAsArrayBuffer(f)};
+document.getElementById("export").onclick=()=>{let out=rows.map(r=>({id:r.id,ParcelleDenomination:r.parcelledenomination,"Grande localité":r.grande_localite,Statut:status(r)}));let wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(out),"Classement central");XLSX.writeFile(wb,"classement_localites_central.xlsx")};
+document.getElementById("journal").onclick=async()=>{let {data,error}=await client.from("journal_classement").select("*").order("created_at",{ascending:false}).limit(30);if(error){toast(error.message);return}alert((data||[]).map(x=>`${new Date(x.created_at).toLocaleString("fr-FR")} — ${x.parcelledenomination}: ${x.ancienne_localite} → ${x.nouvelle_localite}`).join("\n")||"Aucun mouvement.")};
+init();
+</script>
+</body></html>
