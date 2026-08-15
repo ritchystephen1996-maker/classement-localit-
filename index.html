@@ -307,12 +307,22 @@ button{
     placeholder="🔎 Rechercher une dénomination…"
   >
 
-  <select id="filter">
-    <option value="all">Tous</option>
+<input id="search" placeholder="🔎 Rechercher une dénomination…">
+
+<select id="communeFilter">
+    <option value="all">Toutes les communes</option>
+</select>
+
+<select id="sectionFilter">
+    <option value="all">Toutes les sections communales</option>
+</select>
+
+<select id="filter">
+    <option value="all">Tous les statuts</option>
     <option value="À classer">À classer</option>
     <option value="À vérifier">À vérifier</option>
     <option value="OK">OK</option>
-  </select>
+</select>
 
   <button id="import">
     📥 Importer Excel
