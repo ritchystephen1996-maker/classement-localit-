@@ -405,6 +405,7 @@ let rows = [];
 let groups = [];
 let communes = [];
 let sections = [];
+let sectionsByCommune = {};
 
 /* IDs sélectionnés */
 
@@ -500,6 +501,16 @@ function rebuild(){
     )
   ].sort((a,b)=>a.localeCompare(b,'fr'));
 
+  // sections grouped by commune for dependent select
+  sectionsByCommune = {};
+  rows.forEach(r=>{
+    const c = getRowField(r,'commune','commune_nom','commune_name','communes','commune_commune');
+    const s = getRowField(r,'section','section_commune','section_name');
+    if(c && s){
+      if(!sectionsByCommune[c]) sectionsByCommune[c] = new Set();
+      sectionsByCommune[c].add(s);
+    }
+  });
 }
 
 
@@ -569,14 +580,22 @@ function updateCommuneSelect(){
 function updateSectionSelect(){
   const select = document.getElementById('sectionFilter');
   const current = select.value;
+  // use selected commune to limit sections
+  const communeSel = document.getElementById('communeFilter')?.value;
+  let opts = [];
+  if(communeSel && communeSel !== 'all' && sectionsByCommune[communeSel]){
+    opts = Array.from(sectionsByCommune[communeSel]).sort((a,b)=>a.localeCompare(b,'fr'));
+  }else{
+    opts = sections.slice();
+  }
   select.innerHTML = '<option value="all">Toutes les sections communales</option>';
-  sections.forEach(s=>{
+  opts.forEach(s=>{
     const o = document.createElement('option');
     o.value = s;
     o.textContent = s;
     select.appendChild(o);
   });
-  if(sections.includes(current)) select.value = current;
+  if(opts.includes(current)) select.value = current; else select.value = 'all';
 }
 
 
@@ -956,7 +975,7 @@ setTimeout(()=>{
   const f = document.getElementById('filter');
   if(f) f.addEventListener('change', render);
   const cf = document.getElementById('communeFilter');
-  if(cf) cf.addEventListener('change', render);
+  if(cf) cf.addEventListener('change', ()=>{ document.getElementById('sectionFilter').value='all'; render(); });
   const sf = document.getElementById('sectionFilter');
   if(sf) sf.addEventListener('change', render);
 },200);
