@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+
 <title>CECI — Classement central</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -64,8 +65,13 @@ input,select,button{
 }
 
 input{
-  min-width:260px;
+  min-width:240px;
   flex:1
+}
+
+select{
+  min-width:190px;
+  cursor:pointer
 }
 
 button{
@@ -76,6 +82,18 @@ button{
   background:#175cd3;
   color:#fff;
   border-color:#175cd3
+}
+
+.success{
+  background:#067647;
+  color:#fff;
+  border-color:#067647
+}
+
+.danger{
+  background:#b42318;
+  color:#fff;
+  border-color:#b42318
 }
 
 .notice{
@@ -91,42 +109,29 @@ button{
   font-weight:700
 }
 
-/* BARRE DE CLASSEMENT MULTIPLE */
-
-.bulkbar{
+/* BARRE DE SELECTION */
+.selection-bar{
   margin:0 15px 12px;
   padding:12px;
-  background:#eef4ff;
+  background:#eaf2ff;
   border:1px solid #b2ccff;
   border-radius:9px;
   display:flex;
-  align-items:center;
   gap:10px;
+  align-items:center;
   flex-wrap:wrap
 }
 
-.bulkbar strong{
-  color:#163a63
+.selection-count{
+  font-weight:700;
+  color:#175cd3
 }
 
-.bulkbar select{
-  min-width:230px
+.selection-bar select{
+  min-width:260px
 }
 
-.bulkbar button{
-  background:#175cd3;
-  color:#fff;
-  border-color:#175cd3
-}
-
-.bulkbar .cancel{
-  background:#fff;
-  color:#344054;
-  border-color:#d0d5dd
-}
-
-/* TABLEAU */
-
+/* BOARD */
 .board{
   display:flex;
   gap:12px;
@@ -135,12 +140,12 @@ button{
 }
 
 .col{
-  width:285px;
-  min-width:285px;
+  width:300px;
+  min-width:300px;
   background:#e9eef3;
   border:1px solid #d9dee6;
   border-radius:10px;
-  max-height:calc(100vh - 260px);
+  max-height:calc(100vh - 280px);
   display:flex;
   flex-direction:column
 }
@@ -150,7 +155,8 @@ button{
   font-weight:700;
   border-bottom:1px solid #d9dee6;
   display:flex;
-  justify-content:space-between
+  justify-content:space-between;
+  gap:8px
 }
 
 .badge{
@@ -169,7 +175,7 @@ button{
   background:#fff;
   border:1px solid #d9dee6;
   border-radius:8px;
-  padding:9px;
+  padding:10px;
   margin-bottom:7px;
   cursor:grab;
   user-select:none;
@@ -177,23 +183,26 @@ button{
 }
 
 .card:hover{
-  border-color:#98a2b3
+  box-shadow:0 2px 8px #0001
 }
 
 .card.selected{
   border:2px solid #175cd3;
   background:#eef4ff;
-  box-shadow:0 0 0 2px #175cd322
+  box-shadow:0 0 0 2px #175cd320
 }
 
 .card b{
-  overflow-wrap:anywhere
+  overflow-wrap:anywhere;
+  display:block;
+  margin-bottom:5px
 }
 
 .meta{
   font-size:11px;
   color:#667085;
-  margin-top:5px
+  margin-top:4px;
+  line-height:1.45
 }
 
 .col.over{
@@ -207,6 +216,7 @@ button{
   color:#667085
 }
 
+/* LOGIN */
 .overlay{
   position:fixed;
   inset:0;
@@ -244,20 +254,45 @@ button{
   display:none;
   z-index:30
 }
+
+/* MOBILE */
+@media(max-width:800px){
+  .board{
+    flex-direction:column
+  }
+
+  .col{
+    width:100%;
+    min-width:100%;
+    max-height:none
+  }
+
+  .toolbar input,
+  .toolbar select{
+    width:100%;
+    flex:100%
+  }
+}
 </style>
 </head>
 
 <body>
 
+<!-- =========================================================
+     CONNEXION
+========================================================= -->
+
 <div id="login" class="overlay">
   <div class="box">
+
     <h2>Classement CECI</h2>
 
-    <p>Connexion sécurisée à la base centrale.</p>
+    <p>
+      Connexion sécurisée à la base centrale.
+    </p>
 
     <p style="font-size:12px;color:#667085">
       Pour ce MVP, l'accès utilise l'authentification anonyme Supabase.
-      La protection par code partagé pourra être ajoutée ensuite via une Edge Function.
     </p>
 
     <button id="connect" class="primary">
@@ -265,13 +300,20 @@ button{
     </button>
 
     <p id="err" style="color:#b42318"></p>
+
   </div>
 </div>
 
 
+<!-- =========================================================
+     HEADER
+========================================================= -->
+
 <header>
 
-  <h1>Classement central des grandes localités</h1>
+  <h1>
+    Classement central des grandes localités
+  </h1>
 
   <div class="stats">
 
@@ -292,13 +334,17 @@ button{
     </span>
 
     <span class="pill">
-      Sélectionnées : <b id="selCount">0</b>
+      Sélection : <b id="selectedCount">0</b>
     </span>
 
   </div>
 
 </header>
 
+
+<!-- =========================================================
+     FILTRES
+========================================================= -->
 
 <div class="toolbar">
 
@@ -316,11 +362,28 @@ button{
   </select>
 
   <select id="filter">
-    <option value="all">Tous les statuts</option>
-    <option value="À classer">À classer</option>
-    <option value="À vérifier">À vérifier</option>
-    <option value="OK">OK</option>
+
+    <option value="all">
+      Tous les statuts
+    </option>
+
+    <option value="À classer">
+      À classer
+    </option>
+
+    <option value="À vérifier">
+      À vérifier
+    </option>
+
+    <option value="OK">
+      OK
+    </option>
+
   </select>
+
+  <button id="resetFilters">
+    ↺ Réinitialiser
+  </button>
 
   <button id="import">
     📥 Importer Excel
@@ -348,29 +411,18 @@ button{
 </div>
 
 
-<div class="notice">
-  <span class="live">● Temps réel</span>
-  —
-  les changements enregistrés dans la base centrale sont reçus automatiquement par les autres utilisateurs.
-  <br>
-  <small>
-    💡 Cliquez sur une carte pour la sélectionner.
-    Utilisez <b>Ctrl + clic</b> pour sélectionner plusieurs cartes.
-    Le glisser-déposer reste disponible.
-  </small>
-</div>
+<!-- =========================================================
+     BARRE SELECTION MULTIPLE
+========================================================= -->
 
+<div id="selectionBar" class="selection-bar hidden">
 
-<!-- BARRE DE CLASSEMENT MULTIPLE -->
-
-<div id="bulkbar" class="bulkbar hidden">
-
-  <strong>
-    <span id="selectedNumber">0</span>
+  <span class="selection-count">
+    <span id="selectionNumber">0</span>
     élément(s) sélectionné(s)
-  </strong>
+  </span>
 
-  <select id="newGroup">
+  <select id="bulkGroup">
 
     <option value="">
       — Choisir une nouvelle grande localité —
@@ -378,16 +430,41 @@ button{
 
   </select>
 
-  <button id="applyBulk">
+  <button
+    id="bulkMove"
+    class="success"
+  >
     ✅ Classer la sélection
   </button>
 
-  <button id="clearSelection" class="cancel">
-    ✕ Annuler la sélection
+  <button
+    id="clearSelection"
+  >
+    ✕ Désélectionner
   </button>
 
 </div>
 
+
+<!-- =========================================================
+     INFORMATION
+========================================================= -->
+
+<div class="notice">
+
+  <span class="live">
+    ● Temps réel
+  </span>
+
+  — les changements enregistrés dans la base centrale sont reçus
+  automatiquement par les autres utilisateurs.
+
+</div>
+
+
+<!-- =========================================================
+     BOARD
+========================================================= -->
 
 <div id="board" class="board"></div>
 
@@ -396,6 +473,10 @@ button{
 
 <script>
 
+/* ============================================================
+   CONFIGURATION
+============================================================ */
+
 const cfg = window.APP_CONFIG || {};
 
 let client = null;
@@ -403,118 +484,112 @@ let me = null;
 
 let rows = [];
 let groups = [];
-let communes = [];
-let sections = [];
-let sectionsByCommune = {};
-
-/* IDs sélectionnés */
 
 let selectedIds = new Set();
 
 
+/* ============================================================
+   OUTILS
+============================================================ */
+
 const esc = s =>
   String(s ?? "")
-    .replace(
-      /[&<>\"']/g,
-      m => ({
-        "&":"&amp;",
-        "<":"&lt;",
-        ">":"&gt;",
-        '"':"&quot;",
-        "'":"&#039;"
-      }[m])
-    );
+    .replace(/[&<>"']/g, m => ({
+      "&":"&amp;",
+      "<":"&lt;",
+      ">":"&gt;",
+      '"':"&quot;",
+      "'":"&#039;"
+    }[m]));
 
 
-// récupère une valeur de champ en essayant plusieurs clés possibles
-function getRowField(r, ...keys){
-  for(const k of keys){
-    if(r && typeof r[k] !== 'undefined' && r[k] !== null){
-      return String(r[k]).trim();
-    }
-  }
-  return "";
-}
+function clean(s){
 
-const clean = s =>
-  String(s ?? "")
+  return String(s ?? "")
     .trim()
     .replaceAll("Ã©","é")
     .replaceAll("Ã ","à")
     .replaceAll("Ã¨","è")
     .replaceAll("Ã§","ç")
+    .replaceAll("Ã®","î")
+    .replaceAll("Ã´","ô")
+    .replaceAll("Ã»","û")
+    .replaceAll("Ã‰","É")
+    .replaceAll("Ã€","À")
     .replaceAll("â€”","—")
     .replaceAll("â€™","’")
     .replaceAll("Â","");
 
+}
+
+
+/* Normalisation pour reconnaître les noms de colonnes Excel */
+
+function normalizeKey(value){
+
+  return clean(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .replace(/[_\-]/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+
+}
+
+
+/* Recherche d'une colonne Excel */
+
+function findColumn(keys, names){
+
+  const normalizedKeys = keys.map(k => ({
+    original:k,
+    normalized:normalizeKey(k)
+  }));
+
+  const wanted = names.map(normalizeKey);
+
+  for(const w of wanted){
+
+    const found = normalizedKeys.find(
+      x => x.normalized === w
+    );
+
+    if(found) return found.original;
+
+  }
+
+  for(const w of wanted){
+
+    const found = normalizedKeys.find(
+      x => x.normalized.includes(w)
+    );
+
+    if(found) return found.original;
+
+  }
+
+  return null;
+}
+
 
 function toast(t){
 
-  let x = document.getElementById("toast");
+  const x = document.getElementById("toast");
 
   x.textContent = t;
-
   x.style.display = "block";
 
-  setTimeout(
-    () => x.style.display = "none",
-    2200
-  );
+  setTimeout(() => {
+    x.style.display = "none";
+  }, 2200);
 
 }
 
 
-/* RECONSTRUIT LA LISTE DES GRANDES LOCALITÉS */
-
-function rebuild(){
-
-  groups = [
-    ...new Set(
-      rows
-        .map(r => r.grande_localite)
-        .filter(
-          x =>
-            x &&
-            x !== "À classer"
-        )
-    )
-  ].sort(
-    (a,b) =>
-      a.localeCompare(b,"fr")
-  );
-
-  // Communes (essaye plusieurs clés courantes)
-  communes = [
-    ...new Set(
-      rows
-        .map(r => getRowField(r,'commune','commune_nom','commune_name','communes','commune_commune'))
-        .filter(x => x)
-    )
-  ].sort((a,b)=>a.localeCompare(b,'fr'));
-
-  // Sections communales (si présentes)
-  sections = [
-    ...new Set(
-      rows
-        .map(r => getRowField(r,'section','section_commune','section_name'))
-        .filter(x => x)
-    )
-  ].sort((a,b)=>a.localeCompare(b,'fr'));
-
-  // sections grouped by commune for dependent select
-  sectionsByCommune = {};
-  rows.forEach(r=>{
-    const c = getRowField(r,'commune','commune_nom','commune_name','communes','commune_commune');
-    const s = getRowField(r,'section','section_commune','section_name');
-    if(c && s){
-      if(!sectionsByCommune[c]) sectionsByCommune[c] = new Set();
-      sectionsByCommune[c].add(s);
-    }
-  });
-}
-
-
-/* STATUT */
+/* ============================================================
+   STATUT
+============================================================ */
 
 function status(r){
 
@@ -528,457 +603,1521 @@ function status(r){
 }
 
 
-/* MET À JOUR LA LISTE DÉROULANTE */
+/* ============================================================
+   GROUPES
+============================================================ */
 
-function updateGroupSelect(){
+function rebuildGroups(){
+
+  groups = [
+    ...new Set(
+      rows
+        .map(r => clean(r.grande_localite))
+        .filter(
+          x => x && x !== "À classer"
+        )
+    )
+  ].sort(
+    (a,b) => a.localeCompare(b,"fr")
+  );
+
+}
+
+
+/* ============================================================
+   FILTRE COMMUNES
+============================================================ */
+
+function rebuildCommuneFilter(){
 
   const select =
-    document.getElementById("newGroup");
+    document.getElementById("communeFilter");
 
-  const current =
-    select.value;
+  const current = select.value;
 
-  select.innerHTML = `
-    <option value="">
-      — Choisir une nouvelle grande localité —
-    </option>
-  `;
+  const communes = [
+    ...new Set(
+      rows
+        .map(r => clean(r.commune))
+        .filter(Boolean)
+    )
+  ].sort(
+    (a,b) => a.localeCompare(b,"fr")
+  );
 
-  groups.forEach(g => {
+  select.innerHTML =
+    `<option value="all">
+      Toutes les communes
+    </option>`;
+
+  communes.forEach(commune => {
 
     const option =
       document.createElement("option");
 
-    option.value = g;
-    option.textContent = g;
+    option.value = commune;
+    option.textContent = commune;
 
     select.appendChild(option);
 
   });
 
   if(
-    groups.includes(current)
+    current !== "all" &&
+    communes.includes(current)
   ){
+    select.value = current;
+  }else{
+    select.value = "all";
+  }
+
+}
+
+
+/* ============================================================
+   FILTRE SECTIONS COMMUNALES
+============================================================ */
+
+function rebuildSectionFilter(){
+
+  const commune =
+    document.getElementById("communeFilter").value;
+
+  const select =
+    document.getElementById("sectionFilter");
+
+  const current = select.value;
+
+  let sections = rows
+    .filter(r =>
+      commune === "all" ||
+      clean(r.commune) === commune
+    )
+    .map(r =>
+      clean(r.section_communale)
+    )
+    .filter(Boolean);
+
+  sections = [
+    ...new Set(sections)
+  ].sort(
+    (a,b) => a.localeCompare(b,"fr")
+  );
+
+  select.innerHTML =
+    `<option value="all">
+      Toutes les sections communales
+    </option>`;
+
+  sections.forEach(section => {
+
+    const option =
+      document.createElement("option");
+
+    option.value = section;
+    option.textContent = section;
+
+    select.appendChild(option);
+
+  });
+
+  if(
+    current !== "all" &&
+    sections.includes(current)
+  ){
+    select.value = current;
+  }else{
+    select.value = "all";
+  }
+
+}
+
+
+/* ============================================================
+   LISTE DES GROUPES POUR CLASSEMENT MULTIPLE
+============================================================ */
+
+function rebuildBulkGroups(){
+
+  const select =
+    document.getElementById("bulkGroup");
+
+  const current = select.value;
+
+  select.innerHTML =
+    `<option value="">
+      — Choisir une nouvelle grande localité —
+    </option>`;
+
+  groups.forEach(group => {
+
+    const option =
+      document.createElement("option");
+
+    option.value = group;
+    option.textContent = group;
+
+    select.appendChild(option);
+
+  });
+
+  if(groups.includes(current)){
     select.value = current;
   }
 
 }
 
-function updateCommuneSelect(){
-  const select = document.getElementById('communeFilter');
-  const current = select.value;
-  select.innerHTML = '<option value="all">Toutes les communes</option>';
-  communes.forEach(c=>{
-    const o = document.createElement('option');
-    o.value = c;
-    o.textContent = c;
-    select.appendChild(o);
-  });
-  if(communes.includes(current)) select.value = current;
-}
 
-function updateSectionSelect(){
-  const select = document.getElementById('sectionFilter');
-  const current = select.value;
-  // use selected commune to limit sections
-  const communeSel = document.getElementById('communeFilter')?.value;
-  let opts = [];
-  if(communeSel && communeSel !== 'all' && sectionsByCommune[communeSel]){
-    opts = Array.from(sectionsByCommune[communeSel]).sort((a,b)=>a.localeCompare(b,'fr'));
-  }else{
-    opts = sections.slice();
-  }
-  select.innerHTML = '<option value="all">Toutes les sections communales</option>';
-  opts.forEach(s=>{
-    const o = document.createElement('option');
-    o.value = s;
-    o.textContent = s;
-    select.appendChild(o);
-  });
-  if(opts.includes(current)) select.value = current; else select.value = 'all';
-}
+/* ============================================================
+   FILTRAGE DES DONNEES
+============================================================ */
 
-
-/* MET À JOUR LA BARRE DE SÉLECTION */
-
-function updateSelectionUI(){
-
-  const count =
-    selectedIds.size;
-
-  document.getElementById(
-    "selCount"
-  ).textContent = count;
-
-  document.getElementById(
-    "selectedNumber"
-  ).textContent = count;
-
-  const bar =
-    document.getElementById("bulkbar");
-
-  if(count > 0){
-    bar.classList.remove("hidden");
-  }else{
-    bar.classList.add("hidden");
-  }
-
-}
-
-
-/* SÉLECTION D'UNE CARTE */
-
-function toggleSelection(id){
-
-  id = String(id);
-
-  if(selectedIds.has(id)){
-    selectedIds.delete(id);
-  }else{
-    selectedIds.add(id);
-  }
-
-  updateSelectionUI();
-
-  render();
-
-}
-
-
-/* VIDE LA SÉLECTION */
-
-function clearSelection(){
-
-  selectedIds.clear();
-
-  updateSelectionUI();
-
-  render();
-
-}
-
-
-/* AFFICHAGE */
-
-function render(){
-
-  rebuild();
-
-  updateGroupSelect();
-  updateCommuneSelect();
-  updateSectionSelect();
+function getVisibleRows(){
 
   const q =
     clean(
       document.getElementById("search").value
     ).toLowerCase();
 
-  const f =
+  const commune =
+    document.getElementById("communeFilter").value;
+
+  const section =
+    document.getElementById("sectionFilter").value;
+
+  const filter =
     document.getElementById("filter").value;
 
-  const communeSel = document.getElementById('communeFilter').value;
-  const sectionSel = document.getElementById('sectionFilter').value;
 
-  const vis =
-    rows.filter(
-      r =>
-        (
-          !q ||
-          clean(
-            r.parcelledenomination
-          )
-          .toLowerCase()
-          .includes(q)
-        )
-        &&
-        (
-          f === "all" ||
-          status(r) === f
-        )
-        &&
-        (
-          communeSel === 'all' ||
-          getRowField(r,'commune','commune_nom','commune_name') === communeSel
-        )
-        &&
-        (
-          sectionSel === 'all' ||
-          getRowField(r,'section','section_commune','section_name') === sectionSel
-        )
+  return rows.filter(r => {
+
+    const denomination =
+      clean(
+        r.parcelledenomination
+      ).toLowerCase();
+
+    const matchSearch =
+      !q ||
+      denomination.includes(q);
+
+    const matchCommune =
+      commune === "all" ||
+      clean(r.commune) === commune;
+
+    const matchSection =
+      section === "all" ||
+      clean(r.section_communale) === section;
+
+    const matchStatus =
+      filter === "all" ||
+      status(r) === filter;
+
+    return (
+      matchSearch &&
+      matchCommune &&
+      matchSection &&
+      matchStatus
     );
 
+  });
 
-  document.getElementById("n")
-    .textContent = rows.length;
-
-  document.getElementById("u")
-    .textContent =
-      rows.filter(
-        r =>
-          r.grande_localite === "À classer"
-      ).length;
-
-  document.getElementById("g")
-    .textContent = groups.length;
+}
 
 
-  const b =
+/* ============================================================
+   RENDU
+============================================================ */
+
+function render(){
+
+  rebuildGroups();
+
+  rebuildCommuneFilter();
+
+  rebuildSectionFilter();
+
+  rebuildBulkGroups();
+
+
+  const visibleRows =
+    getVisibleRows();
+
+
+  document.getElementById("n").textContent =
+    rows.length;
+
+  document.getElementById("u").textContent =
+    rows.filter(
+      r => r.grande_localite === "À classer"
+    ).length;
+
+  document.getElementById("g").textContent =
+    groups.length;
+
+  document.getElementById("selectedCount").textContent =
+    selectedIds.size;
+
+
+  const board =
     document.getElementById("board");
 
-  b.innerHTML = "";
+  board.innerHTML = "";
 
+
+  /* Colonnes */
 
   [
     "À classer",
     ...groups
-  ].forEach(g => {
+  ].forEach(group => {
 
-    const c =
+    const column =
       document.createElement("section");
 
-    c.className = "col";
+    column.className = "col";
 
 
-    const a =
-      vis.filter(
-        r =>
-          r.grande_localite === g
+    const cards =
+      visibleRows.filter(
+        r => r.grande_localite === group
       );
 
 
-    c.innerHTML = `
+    column.innerHTML = `
+
       <div class="head">
-        <span>${esc(g)}</span>
-        <span class="badge">
-          ${a.length}
+
+        <span>
+          ${esc(group)}
         </span>
+
+        <span class="badge">
+          ${cards.length}
+        </span>
+
       </div>
 
       <div class="cards"></div>
+
     `;
 
 
-    const cs =
-      c.querySelector(".cards");
+    const cardsContainer =
+      column.querySelector(".cards");
 
 
-    a.forEach(r => {
+    cards.forEach(r => {
 
-      let d =
+      const card =
         document.createElement("div");
 
-      d.className =
-        "card" +
-        (
-          selectedIds.has(
-            String(r.id)
-          )
-          ? " selected"
-          : ""
-        );
+      card.className = "card";
+
+      if(selectedIds.has(String(r.id))){
+        card.classList.add("selected");
+      }
+
+      card.draggable = true;
 
 
-      d.draggable = true;
+      card.innerHTML = `
 
-
-      d.innerHTML = `
-        <b>${esc(
-          r.parcelledenomination
-        )}</b>
+        <b>
+          ${esc(r.parcelledenomination)}
+        </b>
 
         <div class="meta">
-          ID ${esc(r.id)}
-          · ${esc(status(r))}
+          ID : ${esc(r.id)}
         </div>
+
+        <div class="meta">
+          📍 Commune :
+          ${esc(r.commune || "Non renseignée")}
+        </div>
+
+        <div class="meta">
+          📌 Section :
+          ${esc(r.section_communale || "Non renseignée")}
+        </div>
+
+        <div class="meta">
+          📂 Statut :
+          ${esc(status(r))}
+        </div>
+
       `;
 
 
-      /*
-       * CLIC SUR LA CARTE
-       *
-       * Ctrl + clic = sélection multiple
-       */
+      /* ======================================================
+         SELECTION
+      ====================================================== */
 
-      d.onclick = e => {
+      card.onclick = e => {
 
-        e.stopPropagation();
+        /*
+         Ctrl + clic = ajouter/enlever
+         Clic simple = sélectionner uniquement cette carte
+        */
 
-        toggleSelection(r.id);
+        if(e.ctrlKey || e.metaKey){
+
+          const id = String(r.id);
+
+          if(selectedIds.has(id)){
+            selectedIds.delete(id);
+          }else{
+            selectedIds.add(id);
+          }
+
+        }else{
+
+          selectedIds.clear();
+          selectedIds.add(String(r.id));
+
+        }
+
+        updateSelectionBar();
+        render();
 
       };
 
 
-      /*
-       * GLISSER-DÉPOSER
-       */
+      /* ======================================================
+         DRAG
+      ====================================================== */
 
-      d.ondragstart = e => {
-
-        /*
-         * Si la carte glissée fait partie
-         * de la sélection, on déplace toute
-         * la sélection.
-         */
-
-        if(
-          !selectedIds.has(
-            String(r.id)
-          )
-        ){
-
-          selectedIds.clear();
-
-          selectedIds.add(
-            String(r.id)
-          );
-
-          updateSelectionUI();
-
-        }
+      card.ondragstart = e => {
 
         e.dataTransfer.setData(
           "text/plain",
-          r.id
+          String(r.id)
         );
 
       };
 
 
-      cs.appendChild(d);
+      cardsContainer.appendChild(card);
 
     });
 
 
-    if(!a.length){
+    if(!cards.length){
 
-      cs.innerHTML =
-        '<div class="empty">Déposer ici</div>';
+      cardsContainer.innerHTML =
+        `<div class="empty">
+          Déposer ici
+        </div>`;
 
     }
 
 
-    /*
-     * ZONE DROP
-     */
+    /* ======================================================
+       DROP
+    ====================================================== */
 
-    c.ondragover = e => {
+    column.ondragover = e => {
 
       e.preventDefault();
 
-      c.classList.add("over");
+      column.classList.add("over");
 
     };
 
 
-    c.ondragleave = () => {
+    column.ondragleave = () => {
 
-      c.classList.remove("over");
+      column.classList.remove("over");
 
     };
 
 
-    c.ondrop = async e => {
+    column.ondrop = async e => {
 
       e.preventDefault();
 
-      c.classList.remove("over");
+      column.classList.remove("over");
+
+      const id =
+        e.dataTransfer.getData("text/plain");
+
+      const row =
+        rows.find(
+          x => String(x.id) === String(id)
+        );
+
+      if(
+        row &&
+        row.grande_localite !== group
+      ){
+
+        await move(row,group);
+
+      }
+
+    };
 
 
-      /*
-       * Si plusieurs cartes sont sélectionnées,
-       * on les déplace toutes.
-       */
+    board.appendChild(column);
 
-      if(selectedIds.size > 0){
-
-        const selectedRows =
-          rows.filter(
-            r =>
-              selectedIds.has(
-                String(r.id)
-              )
-          );
+  });
 
 
-        for(const r of selectedRows){
+  updateSelectionBar();
 
-          if(
-            r.grande_localite !== g
-          ){
+}
 
-            await move(
-              r,
-              g,
-              false
+
+/* ============================================================
+   BARRE DE SELECTION
+============================================================ */
+
+function updateSelectionBar(){
+
+  const bar =
+    document.getElementById("selectionBar");
+
+  const number =
+    selectedIds.size;
+
+
+  document.getElementById(
+    "selectionNumber"
+  ).textContent = number;
+
+
+  document.getElementById(
+    "selectedCount"
+  ).textContent = number;
+
+
+  if(number > 0){
+
+    bar.classList.remove("hidden");
+
+  }else{
+
+    bar.classList.add("hidden");
+
+  }
+
+}
+
+
+/* ============================================================
+   DEPLACER UNE LOCALITE
+============================================================ */
+
+async function move(row,newGroup){
+
+  if(!row || !newGroup) return;
+
+
+  const oldGroup =
+    row.grande_localite;
+
+
+  const { error } =
+    await client
+      .from("localites")
+      .update({
+
+        grande_localite:newGroup,
+
+        statut:
+          newGroup === "À classer"
+            ? "À classer"
+            : "OK",
+
+        updated_at:
+          new Date().toISOString(),
+
+        updated_by:
+          me.id
+
+      })
+      .eq("id",row.id);
+
+
+  if(error){
+
+    toast("Erreur : " + error.message);
+
+    return;
+
+  }
+
+
+  await client
+    .from("journal_classement")
+    .insert({
+
+      localite_id:row.id,
+
+      parcelledenomination:
+        row.parcelledenomination,
+
+      ancienne_localite:
+        oldGroup,
+
+      nouvelle_localite:
+        newGroup,
+
+      utilisateur:
+        me.id
+
+    });
+
+
+  /* Mise à jour locale immédiate */
+
+  row.grande_localite = newGroup;
+
+  row.statut =
+    newGroup === "À classer"
+      ? "À classer"
+      : "OK";
+
+
+  toast("Classement enregistré");
+
+  render();
+
+}
+
+
+/* ============================================================
+   CLASSEMENT MULTIPLE
+============================================================ */
+
+async function moveSelected(){
+
+  const group =
+    document.getElementById("bulkGroup").value;
+
+
+  if(!group){
+
+    toast(
+      "Choisissez une grande localité"
+    );
+
+    return;
+
+  }
+
+
+  if(selectedIds.size === 0){
+
+    toast(
+      "Aucun élément sélectionné"
+    );
+
+    return;
+
+  }
+
+
+  const ids =
+    [...selectedIds];
+
+
+  const selectedRows =
+    rows.filter(
+      r => ids.includes(String(r.id))
+    );
+
+
+  if(!selectedRows.length){
+
+    return;
+
+  }
+
+
+  const confirmed =
+    confirm(
+      `Classer ${selectedRows.length} élément(s) dans « ${group} » ?`
+    );
+
+
+  if(!confirmed) return;
+
+
+  for(const row of selectedRows){
+
+    await move(row,group);
+
+  }
+
+
+  selectedIds.clear();
+
+  updateSelectionBar();
+
+  render();
+
+
+  toast(
+    selectedRows.length +
+    " élément(s) classé(s)"
+  );
+
+}
+
+
+/* ============================================================
+   CHARGEMENT SUPABASE
+============================================================ */
+
+async function load(){
+
+  const {
+    data,
+    error
+  } = await client
+    .from("localites")
+    .select("*")
+    .order("parcelledenomination");
+
+
+  if(error){
+
+    toast(error.message);
+
+    return;
+
+  }
+
+
+  rows = data || [];
+
+  render();
+
+}
+
+
+/* ============================================================
+   REALTIME
+============================================================ */
+
+function subscribe(){
+
+  client
+    .channel("localites-realtime")
+
+    .on(
+      "postgres_changes",
+      {
+        event:"*",
+        schema:"public",
+        table:"localites"
+      },
+      payload => {
+
+        const r =
+          payload.new ||
+          payload.old;
+
+
+        if(payload.eventType === "UPDATE"){
+
+          const i =
+            rows.findIndex(
+              x => x.id === r.id
             );
+
+          if(i >= 0){
+
+            rows[i] = r;
+
+          }else{
+
+            rows.push(r);
 
           }
 
         }
 
-        clearSelection();
+        else if(
+          payload.eventType === "INSERT"
+        ){
+
+          rows.push(r);
+
+        }
+
+        else if(
+          payload.eventType === "DELETE"
+        ){
+
+          rows =
+            rows.filter(
+              x => x.id !== r.id
+            );
+
+          selectedIds.delete(
+            String(r.id)
+          );
+
+        }
+
+
+        render();
 
         toast(
-          selectedRows.length +
-          " élément(s) classé(s)"
+          "Mise à jour reçue"
         );
+
+      }
+
+    )
+
+    .subscribe();
+
+}
+
+
+/* ============================================================
+   INITIALISATION
+============================================================ */
+
+async function init(){
+
+  if(
+    !cfg.SUPABASE_URL ||
+    cfg.SUPABASE_URL.includes(
+      "TON-PROJET"
+    )
+  ){
+
+    document.getElementById(
+      "err"
+    ).textContent =
+      "Configuration Supabase manquante.";
+
+    return;
+
+  }
+
+
+  client =
+    supabase.createClient(
+      cfg.SUPABASE_URL,
+      cfg.SUPABASE_PUBLISHABLE_KEY
+    );
+
+
+  const {
+    data
+  } =
+    await client.auth.getSession();
+
+
+  if(data.session){
+
+    me =
+      data.session.user;
+
+  }
+
+
+  document.getElementById(
+    "connect"
+  ).onclick =
+    async () => {
+
+      const result =
+        await client.auth.signInAnonymously();
+
+
+      if(result.error){
+
+        document.getElementById(
+          "err"
+        ).textContent =
+          result.error.message;
 
         return;
 
       }
 
 
-      /*
-       * Ancien comportement
-       */
-
-      const id =
-        e.dataTransfer.getData(
-          "text/plain"
-        );
-
-      const r =
-        rows.find(
-          x =>
-            String(x.id) ===
-            String(id)
-        );
+      me =
+        result.data.user;
 
 
-      if(
-        r &&
-        r.grande_localite !== g
-      ){
+      document.getElementById(
+        "login"
+      ).classList.add("hidden");
 
-        await move(
-          r,
-          g
-        );
 
-      }
+      document.getElementById(
+        "connection"
+      ).textContent =
+        "Base centrale connectée";
+
+
+      await load();
+
+      subscribe();
 
     };
 
 
-    b.appendChild(c);
+  if(me){
 
-  });
+    document.getElementById(
+      "login"
+    ).classList.add("hidden");
+
+
+    document.getElementById(
+      "connection"
+    ).textContent =
+      "Base centrale connectée";
+
+
+    await load();
+
+    subscribe();
+
+  }
 
 }
 
-/* rest of file unchanged... (functions move, applyBulk, other handlers remain as before) */
 
-// --- hook simple listeners so filters update UI immediately ---
-setTimeout(()=>{
-  const s = document.getElementById('search');
-  if(s) s.addEventListener('input', render);
-  const f = document.getElementById('filter');
-  if(f) f.addEventListener('change', render);
-  const cf = document.getElementById('communeFilter');
-  if(cf) cf.addEventListener('change', ()=>{ document.getElementById('sectionFilter').value='all'; render(); });
-  const sf = document.getElementById('sectionFilter');
-  if(sf) sf.addEventListener('change', render);
-},200);
+/* ============================================================
+   FILTRES
+============================================================ */
+
+document.getElementById(
+  "search"
+).oninput = render;
+
+
+document.getElementById(
+  "filter"
+).onchange = render;
+
+
+/*
+ * Quand la commune change :
+ * on reconstruit immédiatement la liste
+ * des sections communales correspondantes.
+ */
+
+document.getElementById(
+  "communeFilter"
+).onchange = () => {
+
+  document.getElementById(
+    "sectionFilter"
+  ).value = "all";
+
+  rebuildSectionFilter();
+
+  render();
+
+};
+
+
+document.getElementById(
+  "sectionFilter"
+).onchange = render;
+
+
+/* Réinitialiser */
+
+document.getElementById(
+  "resetFilters"
+).onclick = () => {
+
+  document.getElementById(
+    "search"
+  ).value = "";
+
+  document.getElementById(
+    "communeFilter"
+  ).value = "all";
+
+  rebuildSectionFilter();
+
+  document.getElementById(
+    "sectionFilter"
+  ).value = "all";
+
+  document.getElementById(
+    "filter"
+  ).value = "all";
+
+  render();
+
+};
+
+
+/* ============================================================
+   SELECTION
+============================================================ */
+
+document.getElementById(
+  "bulkMove"
+).onclick =
+  moveSelected;
+
+
+document.getElementById(
+  "clearSelection"
+).onclick = () => {
+
+  selectedIds.clear();
+
+  updateSelectionBar();
+
+  render();
+
+};
+
+
+/* ============================================================
+   AJOUTER UNE GRANDE LOCALITE
+============================================================ */
+
+document.getElementById(
+  "add"
+).onclick =
+  async () => {
+
+    let group =
+      prompt(
+        "Nom de la grande localité"
+      );
+
+
+    if(!group?.trim()) return;
+
+
+    group =
+      clean(group);
+
+
+    const {
+      error
+    } =
+      await client
+        .from("groupes")
+        .upsert({
+          nom:group
+        });
+
+
+    if(error){
+
+      toast(error.message);
+
+    }else{
+
+      toast(
+        "Grande localité ajoutée"
+      );
+
+      rebuildGroups();
+
+      rebuildBulkGroups();
+
+    }
+
+  };
+
+
+/* ============================================================
+   IMPORT EXCEL
+============================================================ */
+
+document.getElementById(
+  "import"
+).onclick = () => {
+
+  document.getElementById(
+    "file"
+  ).click();
+
+};
+
+
+document.getElementById(
+  "file"
+).onchange =
+  async e => {
+
+    const file =
+      e.target.files[0];
+
+
+    if(!file) return;
+
+
+    const reader =
+      new FileReader();
+
+
+    reader.onload =
+      async ev => {
+
+        try{
+
+          let workbook;
+
+
+          if(
+            file.name
+              .toLowerCase()
+              .endsWith(".csv")
+          ){
+
+            workbook =
+              XLSX.read(
+                ev.target.result,
+                {
+                  type:"string"
+                }
+              );
+
+          }else{
+
+            workbook =
+              XLSX.read(
+                ev.target.result,
+                {
+                  type:"array"
+                }
+              );
+
+          }
+
+
+          const sheet =
+            workbook.Sheets[
+              workbook.SheetNames[0]
+            ];
+
+
+          const data =
+            XLSX.utils.sheet_to_json(
+              sheet,
+              {
+                defval:""
+              }
+            );
+
+
+          if(!data.length){
+
+            toast(
+              "Le fichier Excel est vide"
+            );
+
+            return;
+
+          }
+
+
+          const keys =
+            Object.keys(data[0]);
+
+
+          /* Colonnes recherchées */
+
+          const idk =
+            findColumn(
+              keys,
+              [
+                "id",
+                "identifiant"
+              ]
+            );
+
+
+          const pk =
+            findColumn(
+              keys,
+              [
+                "ParcelleDenomination",
+                "Parcelle Denomination",
+                "dénomination",
+                "denomination",
+                "localité",
+                "localite"
+              ]
+            );
+
+
+          const ck =
+            findColumn(
+              keys,
+              [
+                "commune"
+              ]
+            );
+
+
+          const sck =
+            findColumn(
+              keys,
+              [
+                "section communale",
+                "section_communale",
+                "sectioncommunale",
+                "section"
+              ]
+            );
+
+
+          const gk =
+            findColumn(
+              keys,
+              [
+                "grande localité",
+                "grande localite",
+                "grande_localite"
+              ]
+            );
+
+
+          const sk =
+            findColumn(
+              keys,
+              [
+                "statut",
+                "status"
+              ]
+            );
+
+
+          if(!pk){
+
+            toast(
+              "Colonne ParceleDenomination / dénomination introuvable"
+            );
+
+            return;
+
+          }
+
+
+          /*
+           * Construction des données
+           */
+
+          const payload =
+            data.map(
+              (x,i) => {
+
+                const id =
+                  clean(
+                    idk
+                      ? x[idk]
+                      : ""
+                  ) ||
+                  String(i + 1);
+
+
+                const denomination =
+                  clean(
+                    x[pk]
+                  );
+
+
+                return {
+
+                  id:id,
+
+                  parcelledenomination:
+                    denomination,
+
+                  commune:
+                    clean(
+                      ck
+                        ? x[ck]
+                        : ""
+                    ),
+
+                  section_communale:
+                    clean(
+                      sck
+                        ? x[sck]
+                        : ""
+                    ),
+
+                  grande_localite:
+                    clean(
+                      gk
+                        ? x[gk]
+                        : ""
+                    ) ||
+                    "À classer",
+
+                  statut:
+                    clean(
+                      sk
+                        ? x[sk]
+                        : ""
+                    ) ||
+                    (
+                      gk && clean(x[gk])
+                        ? "OK"
+                        : "À classer"
+                    ),
+
+                  updated_at:
+                    new Date().toISOString(),
+
+                  updated_by:
+                    me.id
+
+                };
+
+              }
+            );
+
+
+          /*
+           * Suppression des lignes sans dénomination
+           */
+
+          const validPayload =
+            payload.filter(
+              x =>
+                x.parcelledenomination
+            );
+
+
+          if(!validPayload.length){
+
+            toast(
+              "Aucune donnée valide trouvée"
+            );
+
+            return;
+
+          }
+
+
+          /*
+           * Import par blocs de 200
+           */
+
+          for(
+            let i=0;
+            i<validPayload.length;
+            i+=200
+          ){
+
+            const block =
+              validPayload.slice(
+                i,
+                i + 200
+              );
+
+
+            const {
+              error
+            } =
+              await client
+                .from("localites")
+                .upsert(
+                  block,
+                  {
+                    onConflict:"id"
+                  }
+                );
+
+
+            if(error){
+
+              toast(
+                "Erreur import : " +
+                error.message
+              );
+
+              return;
+
+            }
+
+          }
+
+
+          toast(
+            validPayload.length +
+            " lignes importées"
+          );
+
+
+          /*
+           * Réinitialiser le champ fichier
+           */
+
+          e.target.value = "";
+
+
+          await load();
+
+        }
+
+        catch(error){
+
+          console.error(error);
+
+          toast(
+            "Erreur lors de la lecture du fichier Excel"
+          );
+
+        }
+
+      };
+
+
+    if(
+      file.name
+        .toLowerCase()
+        .endsWith(".csv")
+    ){
+
+      reader.readAsText(
+        file,
+        "utf-8"
+      );
+
+    }else{
+
+      reader.readAsArrayBuffer(
+        file
+      );
+
+    }
+
+  };
+
+
+/* ============================================================
+   EXPORT EXCEL
+============================================================ */
+
+document.getElementById(
+  "export"
+).onclick = () => {
+
+  const output =
+    rows.map(
+      r => ({
+
+        id:
+          r.id,
+
+        ParcelleDenomination:
+          r.parcelledenomination,
+
+        Commune:
+          r.commune || "",
+
+        "Section communale":
+          r.section_communale || "",
+
+        "Grande localité":
+          r.grande_localite,
+
+        Statut:
+          status(r)
+
+      })
+    );
+
+
+  const workbook =
+    XLSX.utils.book_new();
+
+
+  const worksheet =
+    XLSX.utils.json_to_sheet(
+      output
+    );
+
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    worksheet,
+    "Classement central"
+  );
+
+
+  XLSX.writeFile(
+    workbook,
+    "classement_localites_central.xlsx"
+  );
+
+};
+
+
+/* ============================================================
+   JOURNAL
+============================================================ */
+
+document.getElementById(
+  "journal"
+).onclick =
+  async () => {
+
+    const {
+      data,
+      error
+    } =
+      await client
+        .from("journal_classement")
+        .select("*")
+        .order(
+          "created_at",
+          {
+            ascending:false
+          }
+        )
+        .limit(50);
+
+
+    if(error){
+
+      toast(error.message);
+
+      return;
+
+    }
+
+
+    const content =
+      (data || [])
+        .map(
+          x =>
+            `${new Date(
+              x.created_at
+            ).toLocaleString("fr-FR")}
+            — ${x.parcelledenomination}
+            : ${x.ancienne_localite}
+            → ${x.nouvelle_localite}`
+        )
+        .join("\n");
+
+
+    alert(
+      content ||
+      "Aucun mouvement."
+    );
+
+  };
+
+
+/* ============================================================
+   LANCEMENT
+============================================================ */
+
+init();
 
 </script>
 
